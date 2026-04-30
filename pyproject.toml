@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coolmapmaker"
-version = "0.1.0"
+version = "0.1.1"
 description = "Terminal text-adventure engine with a live minimap overlay."
 readme = "README.md"
 license = { text = "MIT" }
