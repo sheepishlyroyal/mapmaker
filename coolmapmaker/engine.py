@@ -261,6 +261,20 @@ def _place_rooms(rooms: list) -> tuple:
                 room._connections.add(nb)
                 nb._connections.add(room)
 
+    # Connect any isolated rooms (0 connections) to their nearest neighbour
+    placed_rooms = list(id_map.values())
+    for room in placed_rooms:
+        if len(room._connections) == 0 and len(placed_rooms) > 1:
+            cx = room._grid_x + room.width  // 2
+            cy = room._grid_y + room.height // 2
+            nearest = min(
+                (r for r in placed_rooms if r is not room),
+                key=lambda r: abs((r._grid_x + r.width  // 2) - cx)
+                            + abs((r._grid_y + r.height // 2) - cy)
+            )
+            room._connections.add(nearest)
+            nearest._connections.add(room)
+
     # Override with explicit exits if provided
     for room in rooms:
         if room.exits is not None:
