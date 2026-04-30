@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "mapmaker"
+version = "0.1.0"
+description = "Terminal text-adventure engine with a live minimap overlay."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "pynput>=1.7",
+]
+keywords = ["terminal", "game", "dungeon", "text-adventure", "ascii", "minimap"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Games/Entertainment :: Role-Playing",
+]
+
+[project.urls]
+Homepage   = "https://github.com/sheepishlyroyal/mapmaker"
+Repository = "https://github.com/sheepishlyroyal/mapmaker"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mapmaker*"]
