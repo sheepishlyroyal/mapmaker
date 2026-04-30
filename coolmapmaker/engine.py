@@ -235,22 +235,34 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
                 f"after 2000 attempts."
             )
 
-    # Fill every remaining cell with a filler room
-    filler_n = [0]
-    for gy in range(grid_size):
-        for gx in range(grid_size):
-            if (gx, gy) not in occupied:
+    # Fill remaining cells — prefer larger shapes, 1x1 only as last resort
+    filler_n   = [0]
+    filler_sizes = [(2, 2), (2, 1), (1, 2), (1, 1)]
+    remaining  = {(gx, gy) for gy in range(grid_size)
+                            for gx in range(grid_size)
+                            if (gx, gy) not in occupied}
+
+    while remaining:
+        gx, gy = min(remaining)   # scan top-left to bottom-right
+        for w, h in filler_sizes:
+            cells = [(gx + dx, gy + dy) for dy in range(h) for dx in range(w)]
+            if all(c in remaining for c in cells):
                 filler_n[0] += 1
                 filler = Room(
                     room_id=f"_filler_{filler_n[0]}",
                     name=random.choice(_FILLER_NAMES),
                     description=random.choice(_FILLER_DESCS),
+                    width=w,
+                    height=h,
                 )
                 uid_counter[0] += 1
                 filler._init_engine(uid_counter[0], gx, gy)
-                occupied.add((gx, gy))
-                grid[(gx, gy)] = filler
+                for cell in cells:
+                    occupied.add(cell)
+                    grid[cell] = filler
+                    remaining.discard(cell)
                 id_map[filler.room_id] = filler
+                break
 
     # Connect rooms that share a grid edge
     for (gx, gy), room in grid.items():
