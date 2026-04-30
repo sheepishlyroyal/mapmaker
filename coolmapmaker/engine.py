@@ -174,6 +174,23 @@ _DEFAULT_EVENTS = [
     "A low moan echoes through the stone. Probably the wind.",
 ]
 
+_FILLER_NAMES = [
+    "Passage", "Dark Corridor", "Side Chamber", "Alcove", "Crawlspace",
+    "Junction", "Narrow Hall", "Side Room", "Connecting Room", "Tunnel",
+    "Ante-room", "Nook", "Back Passage", "Low Tunnel", "Stone Corridor",
+]
+
+_FILLER_DESCS = [
+    "A small connecting room. Nothing of note.",
+    "A low dark passage. You can just about stand upright.",
+    "A bare stone chamber. Empty.",
+    "A cramped alcove worn into the rock.",
+    "Just a junction between passages.",
+    "A featureless corridor. Cold air moves through it.",
+    "Stone walls on all sides. Somewhere to pass through, nothing more.",
+    "A tight squeeze between two larger areas.",
+]
+
 
 # =============================================================================
 # GRID SIZE CALCULATION
@@ -181,11 +198,11 @@ _DEFAULT_EVENTS = [
 
 def _compute_grid_size(rooms: list) -> int:
     """
-    Pick a grid size so rooms fill roughly 75% of the grid area.
-    Clamped to [5, 15].
+    Pick a grid size giving ~2x the space needed for user rooms.
+    The rest fills with corridor rooms. Clamped to [5, 15].
     """
     total_cells = sum(r.width * r.height for r in rooms)
-    size = math.ceil(math.sqrt(total_cells / 0.75))
+    size = math.ceil(math.sqrt(total_cells * 2.0))
     return max(5, min(15, size))
 
 
@@ -228,6 +245,23 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
                 f"Could not place room '{room.room_id}' ({room.width}x{room.height}) "
                 f"after 2000 attempts. Too many large rooms for the grid?"
             )
+
+    # Fill every remaining empty cell with a generic filler room
+    filler_n = [0]
+    for gy in range(grid_size):
+        for gx in range(grid_size):
+            if (gx, gy) not in occupied:
+                filler_n[0] += 1
+                filler = Room(
+                    room_id=f"_filler_{filler_n[0]}",
+                    name=random.choice(_FILLER_NAMES),
+                    description=random.choice(_FILLER_DESCS),
+                )
+                uid_counter[0] += 1
+                filler._init_engine(uid_counter[0], gx, gy)
+                occupied.add((gx, gy))
+                grid[(gx, gy)] = filler
+                id_map[filler.room_id] = filler
 
     # Auto-connect rooms that share a grid edge
     for (gx, gy), room in grid.items():
