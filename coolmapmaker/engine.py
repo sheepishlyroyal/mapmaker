@@ -15,7 +15,7 @@ from pynput import keyboard
 
 
 # =============================================================================
-# TERMINAL UTILITIES  (no `re` — ANSI stripped with a simple state machine)
+# TERMINAL UTILITIES
 # =============================================================================
 
 def _clear_screen():
@@ -56,7 +56,6 @@ def _get_terminal_size() -> tuple:
     except Exception:
         return 120, 40
 
-# ANSI colour helpers
 RESET = "\033[0m"
 BOLD  = "\033[1m"
 
@@ -66,7 +65,6 @@ def _fg(n: int) -> str:
 def _bg(n: int) -> str:
     return f"\033[48;5;{n}m"
 
-# Colour palette
 _C_WALL         = _fg(238) + _bg(234)
 _C_FLOOR        = _fg(59)  + _bg(234)
 _C_PLAYER       = BOLD + _fg(226) + _bg(22)
@@ -76,7 +74,6 @@ _C_DOOR_OPEN    = BOLD + _fg(214) + _bg(52)
 _C_DOOR_HINT    = _fg(130) + _bg(234)
 _C_STATUS       = _bg(232) + _fg(240)
 
-# Minimap cell size (fixed)
 _CELL_W = 4
 _CELL_H = 2
 
@@ -93,25 +90,23 @@ class Room:
     Parameters
     ----------
     room_id : str
-        Unique identifier, e.g. ``"cave_entrance"``.
+        Unique identifier.
     name : str
         Display name shown in the narrative and status bar.
     description : str
-        One or two sentences of atmospheric text shown on entry.
+        Atmospheric text shown on room entry.
     width : int
-        How many grid cells wide this room is (default 1, max 4).
+        Grid cells wide (default 1).
     height : int
-        How many grid cells tall  this room is (default 1, max 3).
+        Grid cells tall (default 1).
     events : list[str], optional
-        Extra lines that may randomly appear when entering.
-        Falls back to the engine's built-in atmospheric events if empty.
+        Random atmospheric lines on entry.
     on_enter : callable, optional
-        ``on_enter(dungeon)`` called every time the player enters.
+        on_enter(dungeon) called every time the player enters.
     entry_message : str, optional
-        Override the random "you step through…" line for this room.
+        Override the random "you step through…" line.
     exits : list[str], optional
-        Explicit list of room_ids this room connects to.
-        If None the engine auto-connects rooms that share a grid edge.
+        Explicit room_id connections. Auto-connects by adjacency if None.
     """
 
     room_id:       str
@@ -148,7 +143,7 @@ class Room:
 
 
 # =============================================================================
-# DEFAULT FALLBACK FLAVOUR TEXT
+# DEFAULT FLAVOUR TEXT
 # =============================================================================
 
 _DEFAULT_ENTRIES = [
@@ -193,14 +188,10 @@ _FILLER_DESCS = [
 
 
 # =============================================================================
-# GRID SIZE CALCULATION
+# GRID SIZE
 # =============================================================================
 
 def _compute_grid_size(rooms: list) -> int:
-    """
-    Pick a grid size giving ~2x the space needed for user rooms.
-    The rest fills with corridor rooms. Clamped to [5, 15].
-    """
     total_cells = sum(r.width * r.height for r in rooms)
     size = math.ceil(math.sqrt(total_cells * 2.0))
     return max(5, min(15, size))
@@ -219,9 +210,9 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
     def try_place(room: Room, x: int, y: int) -> bool:
         cells = [(x + dx, y + dy) for dy in range(room.height) for dx in range(room.width)]
         for cx, cy in cells:
-            if (cx, cy) in occupied:        return False
-            if cx < 0 or cx >= grid_size:   return False
-            if cy < 0 or cy >= grid_size:   return False
+            if (cx, cy) in occupied:      return False
+            if cx < 0 or cx >= grid_size: return False
+            if cy < 0 or cy >= grid_size: return False
         uid_counter[0] += 1
         room._init_engine(uid_counter[0], x, y)
         for cell in cells:
@@ -230,9 +221,7 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
         id_map[room.room_id] = room
         return True
 
-    sorted_rooms = sorted(rooms, key=lambda r: r.width * r.height, reverse=True)
-
-    for room in sorted_rooms:
+    for room in sorted(rooms, key=lambda r: r.width * r.height, reverse=True):
         placed = False
         attempts = 0
         while not placed and attempts < 2000:
@@ -243,10 +232,10 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
         if not placed:
             raise RuntimeError(
                 f"Could not place room '{room.room_id}' ({room.width}x{room.height}) "
-                f"after 2000 attempts. Too many large rooms for the grid?"
+                f"after 2000 attempts."
             )
 
-    # Fill every remaining empty cell with a generic filler room
+    # Fill every remaining cell with a filler room
     filler_n = [0]
     for gy in range(grid_size):
         for gx in range(grid_size):
@@ -263,7 +252,7 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
                 grid[(gx, gy)] = filler
                 id_map[filler.room_id] = filler
 
-    # Auto-connect rooms that share a grid edge
+    # Connect rooms that share a grid edge
     for (gx, gy), room in grid.items():
         for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
             nb = grid.get((gx + dx, gy + dy))
@@ -271,7 +260,7 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
                 room._connections.add(nb)
                 nb._connections.add(room)
 
-    # Connect any isolated rooms to their nearest neighbour
+    # Connect any isolated rooms to nearest neighbour
     placed_rooms = list(id_map.values())
     for room in placed_rooms:
         if len(room._connections) == 0 and len(placed_rooms) > 1:
@@ -285,7 +274,7 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
             room._connections.add(nearest)
             nearest._connections.add(room)
 
-    # Override with explicit exits if provided
+    # Override with explicit exits
     for room in rooms:
         if room.exits is not None:
             room._connections.clear()
@@ -302,7 +291,8 @@ def _place_rooms(rooms: list, grid_size: int) -> tuple:
 # MINIMAP
 # =============================================================================
 
-def _build_minimap(current_room: Room, grid: dict, grid_size: int) -> list:
+def _build_minimap(current_room: Room, grid: dict, grid_size: int,
+                   player_cell: tuple) -> list:
     map_w = grid_size * _CELL_W + 1
     map_h = grid_size * _CELL_H + 1
 
@@ -366,7 +356,9 @@ def _build_minimap(current_room: Room, grid: dict, grid_size: int) -> list:
                             color_buf[by][bx] = _C_CURRENT_BG if is_cur else _C_WALL
                 else:
                     if is_vis:
-                        if is_cur and col == _CELL_W // 2 and row == _CELL_H // 2:
+                        # Draw @ only at the player's exact cell
+                        is_player_cell = (gx == player_cell[0] and gy == player_cell[1])
+                        if is_player_cell and col == _CELL_W // 2 and row == _CELL_H // 2:
                             char_buf[by][bx]  = "@"
                             color_buf[by][bx] = _C_PLAYER
                         elif is_cur:
@@ -389,10 +381,11 @@ def _build_minimap(current_room: Room, grid: dict, grid_size: int) -> list:
 # SCREEN RENDERER
 # =============================================================================
 
-def _render(log: list, current_room: Room, grid: dict, grid_size: int):
+def _render(log: list, current_room: Room, grid: dict, grid_size: int,
+            player_cell: tuple):
     term_w, term_h = _get_terminal_size()
 
-    map_lines  = _build_minimap(current_room, grid, grid_size)
+    map_lines  = _build_minimap(current_room, grid, grid_size, player_cell)
     map_h      = len(map_lines)
     map_vis_w  = grid_size * _CELL_W + 1
 
@@ -438,7 +431,7 @@ def _render(log: list, current_room: Room, grid: dict, grid_size: int):
 
         out.append(f"{_move_cursor(row, 1)}{text_part}{sep}{map_part}{_erase_to_end()}")
 
-    hints = _exit_hints(current_room)
+    hints = _exit_hints(current_room, player_cell, grid, grid_size)
     sbar  = (
         f"{_C_STATUS}  @ {BOLD}{_fg(220)}{current_room.name}{RESET}"
         f"{_C_STATUS}  |  exits: {_fg(172)}{hints}{_fg(240)}"
@@ -454,34 +447,18 @@ def _render(log: list, current_room: Room, grid: dict, grid_size: int):
 # MOVEMENT HELPERS
 # =============================================================================
 
-def _exit_hints(room: Room) -> str:
-    cx, cy = room._center()
+def _exit_hints(room: Room, player_cell: tuple, grid: dict, grid_size: int) -> str:
+    """Show cardinal directions where the adjacent cell belongs to a connected room."""
+    px, py = player_cell
     dirs = []
-    for nb in room._connections:
-        nx, ny = nb._center()
-        dx = nx - cx
-        dy = ny - cy
-        if abs(dx) >= abs(dy):
-            dirs.append("E" if dx > 0 else "W")
-        else:
-            dirs.append("S" if dy > 0 else "N")
+    for dx, dy, label in [(0, -1, "N"), (1, 0, "E"), (0, 1, "S"), (-1, 0, "W")]:
+        nx, ny = px + dx, py + dy
+        if 0 <= nx < grid_size and 0 <= ny < grid_size:
+            nb = grid.get((nx, ny))
+            if nb is not None and nb is not room and nb in room._connections:
+                dirs.append(label)
     order = ["N", "E", "S", "W"]
-    unique = sorted(set(dirs), key=lambda d: order.index(d))
-    return "[" + " ".join(unique) + "]" if unique else "[-]"
-
-
-def _best_neighbour(current: Room, dx: int, dy: int) -> Optional[Room]:
-    cx, cy = current._center()
-    candidates = []
-    for nb in current._connections:
-        nx, ny = nb._center()
-        score  = (nx - cx) * dx + (ny - cy) * dy
-        if score > 0:
-            candidates.append((score, nb._uid, nb))
-    if not candidates:
-        return None
-    candidates.sort(key=lambda t: t[0], reverse=True)
-    return candidates[0][2]
+    return "[" + " ".join(sorted(dirs, key=lambda d: order.index(d))) + "]" if dirs else "[-]"
 
 
 # =============================================================================
@@ -496,15 +473,14 @@ class Dungeon:
     ----------
     rooms : list[Room]
         All Room objects that make up the dungeon.
-        The engine places them on a grid automatically sized to fit.
     start_room_id : str, optional
-        ``room_id`` of the starting room. Defaults to a random room.
+        room_id of the starting room. Defaults to random.
     entry_lines : list[str], optional
-        Override the default "you step through…" lines.
+        Override the "you step through…" lines.
     event_lines : list[str], optional
-        Override the default atmospheric event lines.
+        Override the atmospheric event lines.
     event_chance : float
-        Probability (0–1) that an event fires on room entry. Default 0.55.
+        Probability (0–1) an event fires on room entry. Default 0.55.
     """
 
     def __init__(
@@ -528,16 +504,22 @@ class Dungeon:
 
         if start_room_id is not None:
             if start_room_id not in self._id_map:
-                raise ValueError(f"start_room_id '{start_room_id}' not found in rooms list.")
+                raise ValueError(f"start_room_id '{start_room_id}' not found.")
             self._current = self._id_map[start_room_id]
         else:
             self._current = random.choice(rooms)
+
+        # Player starts at the centre cell of the starting room
+        self._px: int = self._current._grid_x + self._current.width  // 2
+        self._py: int = self._current._grid_y + self._current.height // 2
 
         self._log:          list = []
         self._needs_redraw: bool = True
         self._key_queue:    list = []
 
         self._enter(self._current, first=True)
+
+    # ── public access ─────────────────────────────────────────────────────────
 
     @property
     def current_room(self) -> Room:
@@ -553,6 +535,8 @@ class Dungeon:
     def print(self, text: str):
         self._log.append(f"  {text}")
         self._needs_redraw = True
+
+    # ── narrative ─────────────────────────────────────────────────────────────
 
     def _enter(self, room: Room, first: bool = False):
         room._visited = True
@@ -572,7 +556,7 @@ class Dungeon:
             self._log.append("  |   " + random.choice(pool))
 
         count = len(room._connections)
-        hints = _exit_hints(room)
+        hints = _exit_hints(room, (self._px, self._py), self._grid, self._grid_size)
         self._log.append(f"  +-- {count} exit{'s' if count != 1 else ''}  {hints}")
 
         self._needs_redraw = True
@@ -584,13 +568,40 @@ class Dungeon:
         self._log.append(f"  {text}")
         self._needs_redraw = True
 
+    # ── movement ──────────────────────────────────────────────────────────────
+
     def _move(self, dx: int, dy: int):
-        nb = _best_neighbour(self._current, dx, dy)
-        if nb is None:
+        new_x = self._px + dx
+        new_y = self._py + dy
+
+        # Out of bounds
+        if not (0 <= new_x < self._grid_size and 0 <= new_y < self._grid_size):
             self._message("[No passage that way.]")
             return
-        self._current = nb
-        self._enter(nb)
+
+        target = self._grid.get((new_x, new_y))
+        if target is None:
+            self._message("[No passage that way.]")
+            return
+
+        # Moving within the same room — silent, just update position
+        if target is self._current:
+            self._px = new_x
+            self._py = new_y
+            self._needs_redraw = True
+            return
+
+        # Moving into a connected room — enter it
+        if target in self._current._connections:
+            self._px = new_x
+            self._py = new_y
+            self._current = target
+            self._enter(target)
+            return
+
+        self._message("[No passage that way.]")
+
+    # ── input ─────────────────────────────────────────────────────────────────
 
     def _push_key(self, key):
         self._key_queue.append(key)
@@ -615,6 +626,8 @@ class Dungeon:
 
         return True
 
+    # ── main loop ─────────────────────────────────────────────────────────────
+
     def run(self):
         _clear_screen()
         _hide_cursor()
@@ -627,7 +640,8 @@ class Dungeon:
             while running:
                 running = self._process_keys()
                 if self._needs_redraw:
-                    _render(self._log, self._current, self._grid, self._grid_size)
+                    _render(self._log, self._current, self._grid,
+                            self._grid_size, (self._px, self._py))
                     self._needs_redraw = False
                 time.sleep(0.03)
         except KeyboardInterrupt:
