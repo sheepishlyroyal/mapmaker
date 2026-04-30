@@ -19,4 +19,4 @@ Quick start
 from .engine import Dungeon, Room
 
 __all__ = ["Dungeon", "Room"]
-__version__ = "0.1.1"
+__version__ = "0.1.2"

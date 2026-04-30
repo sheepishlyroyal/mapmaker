@@ -96,7 +96,7 @@ _MAP_H     = _GRID * _CELL_H + 1   # = 21
 # PUBLIC: Room
 # =============================================================================
 
-@dataclass(unsafe_hash=True)
+@dataclass(eq=False)
 class Room:
     """
     A single room (or multi-cell area) in your dungeon.
