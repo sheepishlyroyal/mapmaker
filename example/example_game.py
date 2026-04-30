@@ -14,7 +14,7 @@ Run with:
     python example_game.py
 """
 
-from mapmaker import Room, Dungeon
+from coolmapmaker import Room, Dungeon
 
 # =============================================================================
 # DEFINE YOUR ROOMS

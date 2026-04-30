@@ -1,5 +1,5 @@
 """
-mapmaker.engine
+coolmapmaker.engine
 ===============
 Core engine: Room data class, dungeon generator, minimap renderer, game loop.
 """

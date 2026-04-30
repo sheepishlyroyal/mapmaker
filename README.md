@@ -1,4 +1,4 @@
-# mapmaker
+# coolmapmaker
 
 A terminal text-adventure engine with a live minimap overlay.  
 Define your rooms and dialogue — the engine handles movement, rendering, and the map.
@@ -17,19 +17,19 @@ Define your rooms and dialogue — the engine handles movement, rendering, and t
 ## Install
 
 ```bash
-pip install mapmaker
+pip install coolmapmaker
 ```
 
 Or directly from GitHub:
 
 ```bash
-pip install git+https://github.com/sheepishlyroyal/mapmaker.git
+pip install git+https://github.com/sheepishlyroyal/coolmapmaker.git
 ```
 
 ## Quick start
 
 ```python
-from mapmaker import Room, Dungeon
+from coolmapmaker import Room, Dungeon
 
 rooms = [
     Room(

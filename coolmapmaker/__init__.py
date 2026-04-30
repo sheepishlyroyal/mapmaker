@@ -1,11 +1,11 @@
 """
-mapmaker
+coolmapmaker
 ========
 A terminal text-adventure engine with a live minimap overlay.
 
 Quick start
 -----------
-    from mapmaker import Room, Dungeon
+    from coolmapmaker import Room, Dungeon
 
     rooms = [
         Room("cave_entrance", "Cave Entrance", "Damp stone walls glisten in the torchlight."),
